@@ -149,7 +149,7 @@ Implicit context switch back to bar
 </pre></code></p>
 <p>下图将控制流形象化，就像在调试器中单步执行整个程序，以说明上下文切换如何发生。</p>
 <p><img alt="Greenlet Control Flow" src="flow.gif" /></p>
-<p><strong>注释</strong>：在当前版本gevent的实现中，<code>sleep(0)</code>(默认值)意味着把执行权让给其它正在运行的greenlet。具体见<a href="http://www.gevent.org/gevent.html#sleeping">sleep</p>用法。
+<p class="comment"><strong>注释</strong>：在当前版本gevent的实现中，<code>sleep(0)</code>(默认值)意味着把执行权让给其它正在运行的greenlet。具体见官方文档中<a href="http://www.gevent.org/gevent.html#sleeping">sleep</a>的用法。</p>
 <p>当我们在受限于网络或IO的函数中使用gevent，这些函数会被协作式的调度，
 gevent的真正能力会得到发挥。Gevent处理了所有的细节，
 来保证你的网络库会在可能的时候，隐式交出greenlet上下文的执行权。
