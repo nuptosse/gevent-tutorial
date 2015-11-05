@@ -115,6 +115,7 @@ Greenlet全部运行在主程序操作系统进程的内部，但它们被协作
 </blockquote>
 <p>这与<code>multiprocessing</code>或<code>threading</code>等提供真正并行构造的库是不同的。
 这些库轮转使用操作系统调度的进程和线程，是真正的并行。</p>
+<p class="comment"><strong>注释</strong>：TODO 这里解释一下关键的区别。</p>
 <h2 id="_3">同步和异步执行</h2>
 <p>并发的核心思想在于，大的任务可以分解成一系列的子任务，后者可以被调度成
 同时执行或<em>异步</em>执行，而不是一次一个地或者<em>同步</em>地执行。两个子任务之间的
@@ -267,7 +268,8 @@ import urllib2
 import simplejson as json
 
 def fetch(pid):
-    response = urllib2.urlopen('http://json-time.appspot.com/time.json')
+    response = urllib2.urlopen('http://ossepy.sinaapp.com/time.json') 
+    # 原文链接（http://json-time.appspot.com/time.json）需翻墙，这里在SAE上自己搭了个
     result = response.read()
     json_result = json.loads(result)
     datetime = json_result['datetime']
@@ -285,10 +287,10 @@ def asynchronous():
         threads.append(gevent.spawn(fetch, i))
     gevent.joinall(threads)
 
-print('Synchronous:')
+print('...Synchronous...:')
 synchronous()
 
-print('Asynchronous:')
+print('...Asynchronous...:')
 asynchronous()
 </code>
 </pre>
@@ -346,6 +348,7 @@ True</code>
 因为它会导致整个程序行为变得不确定。</p>
 <p>最好的办法是始终避免所有全局的状态。全局状态和导入时(import-time)副作用总是会
 反咬你一口！</p>
+<p class="comment"><strong>注释</strong>：TODO 这里解释一下imap, map还有确定性的原因。</p>
 <h2 id="greenlets_1">创建Greenlets</h2>
 <p>gevent对Greenlet初始化提供了一些封装，最常用的使用模板之一有</p>
 <pre><code class="python">
@@ -452,6 +455,9 @@ print(loser.successful())  # False
 # The exception raised in fail, will not propogate outside the
 # greenlet. A stack trace will be printed to stdout but it
 # will not unwind the stack of the parent.
+# fail函数中的异常不会影响(propogate)主函数。
+# 异常报错的堆栈信息仍然会输出到标准输出中，
+# 但是在主函数中的try-except并不能捕捉到greenlet中的异常。
 
 print(loser.exception)
 
@@ -465,6 +471,14 @@ print(loser.exception)
 <pre><code class="python">
 True
 True
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/gevent/greenlet.py", line 327, in run
+    result = self._run(*self.args, **self.kwargs)
+  File "ex.py", line 7, in fail
+    raise Exception('You fail at failing.')
+Exception: You fail at failing.
+<Greenlet at 0x7f56a0db67d0: fail> failed with Exception
+
 You win!
 None
 True
@@ -487,12 +501,12 @@ def run_forever():
     gevent.sleep(1000)
 
 if __name__ == '__main__':
-    gevent.signal(signal.SIGQUIT, gevent.shutdown)
+    gevent.signal(signal.SIGQUIT, gevent.kill)
     thread = gevent.spawn(run_forever)
     thread.join()
 </code>
 </pre>
-
+<p class="comment"><strong>注释</strong>：TODO signal用法，这段代码的意义。</p>
 <h2 id="_6">超时</h2>
 <p>超时是一种对一块代码或一个Greenlet的运行时间的约束。</p>
 <pre>
@@ -575,8 +589,7 @@ Thread 3 timed out
 </pre></code></p>
 <h2 id="monkey-patching">猴子补丁(Monkey patching)</h2>
 <p>我们现在来到gevent的死角了. 在此之前，我已经避免提到猴子补丁(monkey patching)
-以尝试使gevent这个强大的协程模型变得生动有趣，但现在到了讨论猴子补丁的黑色艺术
-的时候了。你之前可能注意到我们提到了<code>monkey.patch_socket()</code>这个命令，这个
+以尝试使gevent这个强大的协程模型变得生动有趣，但现在到了讨论猴子补丁的黑魔法的时候了。你之前可能注意到我们提到了<code>monkey.patch_socket()</code>这个命令，这个
 纯粹副作用命令是用来改变标准socket库的。</p>
 <pre>
 <code class="python">import socket
@@ -597,12 +610,12 @@ print(select.select)
 
 <pre>
 <code class="python">class 'socket.socket'
+<class 'socket._socketobject'>
 After monkey patch
-class 'gevent.socket.socket'
-
-built-in function select
+<class 'gevent.socket.socket'>
+<built-in function select>
 After monkey patch
-function select at 0x1924de8
+<function select at 0x7f2c5a816b18>
 </code>
 </pre>
 
@@ -688,7 +701,7 @@ gevent.joinall([
 </code>
 </pre>
 
-<h2 id="_9">队列</h2>
+<h2 id="_9">队列(Queue)</h2>
 <p>队列是一个排序的数据集合，它有常见的<code>put</code> / <code>get</code>操作，
 但是它是以在Greenlet之间可以安全操作的方式来实现的。</p>
 <p>举例来说，如果一个Greenlet从队列中取出一项，此项就不会被
@@ -821,7 +834,7 @@ Quitting time!
 Quitting time!
 Quitting time!
 </pre></code></p>
-<h2 id="_10">组和池</h2>
+<h2 id="_10">组(Group)和池(Pool)</h2>
 <p>组(group)是一个运行中greenlet的集合，集合中的greenlet像一个组一样
 会被共同管理和调度。 它也兼饰了像Python的<code>multiprocessing</code>库那样的
 平行调度器的角色。</p>
